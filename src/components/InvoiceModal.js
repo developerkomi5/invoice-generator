@@ -7,149 +7,163 @@ import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
 import { BiPaperPlane, BiCloudDownload } from "react-icons/bi";
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf'
+import jsPDF from 'jspdf';
 
-function GenerateInvoice() {
-  html2canvas(document.querySelector("#invoiceCapture")).then((canvas) => {
-    const imgData = canvas.toDataURL('image/png', 1.0);
+// ✅ Proper helper function (not a component)
+const generateInvoice = () => {
+  const invoice = document.querySelector("#invoiceCapture");
+  if (!invoice) return;
+
+  html2canvas(invoice).then((canvas) => {
+    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'pt',
-      format: [612, 792]
+      format: 'a4',
     });
-    pdf.internal.scaleFactor = 1;
-    const imgProps= pdf.getImageProperties(imgData);
+
+    const imgProps = pdf.getImageProperties(imgData);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
     pdf.save('invoice-001.pdf');
   });
-}
+};
 
 class InvoiceModal extends React.Component {
-  constructor(props) {
-    super(props);
-  }
   render() {
-    return(
-      <div>
-        <Modal show={this.props.showModal} onHide={this.props.closeModal} size="lg" centered>
-          <div id="invoiceCapture">
-            <div className="d-flex flex-row justify-content-between align-items-start bg-light w-100 p-4">
-              <div className="w-100">
-                <h4 className="fw-bold my-2">{this.props.info.billFrom||'John Uberbacher'}</h4>
-                <h6 className="fw-bold text-secondary mb-1">
-                  Invoice #: {this.props.info.invoiceNumber||''}
-                </h6>
-              </div>
-              <div className="text-end ms-4">
-                <h6 className="fw-bold mt-1 mb-2">Amount&nbsp;Due:</h6>
-                <h5 className="fw-bold text-secondary"> {this.props.currency} {this.props.total}</h5>
-              </div>
+    const {
+      showModal,
+      closeModal,
+      info,
+      items,
+      currency,
+      subTotal,
+      taxAmmount,
+      discountAmmount,
+      total,
+    } = this.props;
+
+    return (
+      <Modal show={showModal} onHide={closeModal} size="lg" centered>
+        <div id="invoiceCapture">
+          <div className="d-flex justify-content-between bg-light p-4">
+            <div>
+              <h4 className="fw-bold">{info.billFrom || 'John Uberbacher'}</h4>
+              <h6 className="text-secondary">
+                Invoice #: {info.invoiceNumber || ''}
+              </h6>
             </div>
-            <div className="p-4">
-              <Row className="mb-4">
-                <Col md={4}>
-                  <div className="fw-bold">Billed to:</div>
-                  <div>{this.props.info.billTo||''}</div>
-                  <div>{this.props.info.billToAddress||''}</div>
-                  <div>{this.props.info.billToEmail||''}</div>
-                </Col>
-                <Col md={4}>
-                  <div className="fw-bold">Billed From:</div>
-                  <div>{this.props.info.billFrom||''}</div>
-                  <div>{this.props.info.billFromAddress||''}</div>
-                  <div>{this.props.info.billFromEmail||''}</div>
-                </Col>
-                <Col md={4}>
-                  <div className="fw-bold mt-2">Date Of Issue:</div>
-                  <div>{this.props.info.dateOfIssue||''}</div>
-                </Col>
-              </Row>
-              <Table className="mb-0">
-                <thead>
-                  <tr>
-                    <th>QTY</th>
-                    <th>DESCRIPTION</th>
-                    <th className="text-end">PRICE</th>
-                    <th className="text-end">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {this.props.items.map((item, i) => {
-                    return (
-                      <tr id={i} key={i}>
-                        <td style={{width: '70px'}}>
-                          {item.quantity}
-                        </td>
-                        <td>
-                          {item.name} - {item.description}
-                        </td>
-                        <td className="text-end" style={{width: '100px'}}>{this.props.currency} {item.price}</td>
-                        <td className="text-end" style={{width: '100px'}}>{this.props.currency} {item.price * item.quantity}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-              <Table>
-                <tbody>
-                  <tr>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
-                  </tr>
-                  <tr className="text-end">
-                    <td></td>
-                    <td className="fw-bold" style={{width: '100px'}}>SUBTOTAL</td>
-                    <td className="text-end" style={{width: '100px'}}>{this.props.currency} {this.props.subTotal}</td>
-                  </tr>
-                  {this.props.taxAmmount !== 0.00 &&
-                    <tr className="text-end">
-                      <td></td>
-                      <td className="fw-bold" style={{width: '100px'}}>TAX</td>
-                      <td className="text-end" style={{width: '100px'}}>{this.props.currency} {this.props.taxAmmount}</td>
-                    </tr>
-                  }
-                  {this.props.discountAmmount != 0.00 &&
-                    <tr className="text-end">
-                      <td></td>
-                      <td className="fw-bold" style={{width: '100px'}}>DISCOUNT</td>
-                      <td className="text-end" style={{width: '100px'}}>{this.props.currency} {this.props.discountAmmount}</td>
-                    </tr>
-                  }
-                  <tr className="text-end">
-                    <td></td>
-                    <td className="fw-bold" style={{width: '100px'}}>TOTAL</td>
-                    <td className="text-end" style={{width: '100px'}}>{this.props.currency} {this.props.total}</td>
-                  </tr>
-                </tbody>
-              </Table>
-              {this.props.info.notes &&
-                <div className="bg-light py-3 px-4 rounded">
-                  {this.props.info.notes}
-                </div>}
+            <div className="text-end">
+              <h6>Amount Due:</h6>
+              <h5 className="text-secondary">
+                {currency} {total}
+              </h5>
             </div>
           </div>
-          <div className="pb-4 px-4">
-            <Row>
-              <Col md={6}>
-                <Button variant="primary" className="d-block w-100" onClick={GenerateInvoice}>
-                  <BiPaperPlane style={{width: '15px', height: '15px', marginTop: '-3px'}} className="me-2"/>Send Invoice
-                </Button>
+
+          <div className="p-4">
+            <Row className="mb-4">
+              <Col md={4}>
+                <div className="fw-bold">Billed To:</div>
+                <div>{info.billTo}</div>
+                <div>{info.billToAddress}</div>
+                <div>{info.billToEmail}</div>
               </Col>
-              <Col md={6}>
-                <Button variant="outline-primary" className="d-block w-100 mt-3 mt-md-0" onClick={GenerateInvoice}>
-                  <BiCloudDownload style={{width: '16px', height: '16px', marginTop: '-3px'}} className="me-2"/>
-                  Download Copy
-                </Button>
+
+              <Col md={4}>
+                <div className="fw-bold">Billed From:</div>
+                <div>{info.billFrom}</div>
+                <div>{info.billFromAddress}</div>
+                <div>{info.billFromEmail}</div>
+              </Col>
+
+              <Col md={4}>
+                <div className="fw-bold">Date Of Issue:</div>
+                <div>{info.dateOfIssue}</div>
               </Col>
             </Row>
+
+            <Table>
+              <thead>
+                <tr>
+                  <th>QTY</th>
+                  <th>DESCRIPTION</th>
+                  <th className="text-end">PRICE</th>
+                  <th className="text-end">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i}>
+                    <td>{item.quantity}</td>
+                    <td>{item.name} - {item.description}</td>
+                    <td className="text-end">{currency} {item.price}</td>
+                    <td className="text-end">
+                      {currency} {item.price * item.quantity}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+
+            <Table>
+              <tbody>
+                <tr className="text-end">
+                  <td></td>
+                  <td className="fw-bold">SUBTOTAL</td>
+                  <td>{currency} {subTotal}</td>
+                </tr>
+
+                {taxAmmount !== 0 && (
+                  <tr className="text-end">
+                    <td></td>
+                    <td className="fw-bold">TAX</td>
+                    <td>{currency} {taxAmmount}</td>
+                  </tr>
+                )}
+
+                {discountAmmount !== 0 && (
+                  <tr className="text-end">
+                    <td></td>
+                    <td className="fw-bold">DISCOUNT</td>
+                    <td>{currency} {discountAmmount}</td>
+                  </tr>
+                )}
+
+                <tr className="text-end">
+                  <td></td>
+                  <td className="fw-bold">TOTAL</td>
+                  <td>{currency} {total}</td>
+                </tr>
+              </tbody>
+            </Table>
+
+            {info.notes && (
+              <div className="bg-light p-3 rounded">{info.notes}</div>
+            )}
           </div>
-        </Modal>
-        <hr className="mt-4 mb-3"/>
-      </div>
-    )
+        </div>
+
+        <div className="px-4 pb-4">
+          <Row>
+            <Col md={6}>
+              <Button className="w-100" onClick={generateInvoice}>
+                <BiPaperPlane className="me-2" />
+                Send Invoice
+              </Button>
+            </Col>
+            <Col md={6}>
+              <Button variant="outline-primary" className="w-100 mt-3 mt-md-0" onClick={generateInvoice}>
+                <BiCloudDownload className="me-2" />
+                Download Copy
+              </Button>
+            </Col>
+          </Row>
+        </div>
+      </Modal>
+    );
   }
 }
 
